@@ -45,3 +45,10 @@ def get_registry():
 
 def save_registry(data):
     save_json(REGISTRY_FILE, data)
+def player_ign(discord_id):
+    players = get_players()
+
+    if str(discord_id) not in players:
+        return None
+
+    return players[str(discord_id)]["ign"]
