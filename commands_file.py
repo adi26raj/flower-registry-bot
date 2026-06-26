@@ -5,9 +5,9 @@ from database import (
     register_player,
     get_ign,
     claim_flower,
-    get_registry
+    get_registry,
+    set_registry_channel
 )
-
 
 class Flower(app_commands.Group):
     def __init__(self):
@@ -101,3 +101,17 @@ def setup(bot):
             "🏓 Pong!",
             ephemeral=True
         )
+
+@bot.tree.command(name="setup_registry", description="Set the flower registry channel")
+@app_commands.checks.has_permissions(administrator=True)
+async def setup_registry(
+    interaction: discord.Interaction,
+    channel: discord.TextChannel
+):
+
+    set_registry_channel(channel.id)
+
+    await interaction.response.send_message(
+        f"✅ Registry channel set to {channel.mention}",
+        ephemeral=True
+    )
