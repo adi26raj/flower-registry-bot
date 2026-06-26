@@ -84,3 +84,26 @@ def claim_flower(flower_name, ign, discord_id):
     save_registry(registry)
 
     return True, ign
+# ---------- CONFIG ----------
+
+CONFIG_FILE = "config.json"
+
+
+def get_config():
+    return load_json(CONFIG_FILE)
+
+
+def save_config(config):
+    save_json(CONFIG_FILE, config)
+
+
+def set_registry_channel(channel_id):
+    config = get_config()
+    config["registry_channel"] = channel_id
+    save_config(config)
+
+
+def set_registry_message(message_id):
+    config = get_config()
+    config["registry_message"] = message_id
+    save_config(config)
