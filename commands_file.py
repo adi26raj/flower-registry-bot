@@ -101,17 +101,20 @@ def setup(bot):
             "🏓 Pong!",
             ephemeral=True
         )
-    @bot.tree.command(name="setup_registry", description="Set the flower registry channel")
-    @app_commands.checks.has_permissions(administrator=True)
-async def setup_registry(
-    interaction: discord.Interaction,
-    channel: discord.TextChannel
-):
 
-    set_registry_channel(channel.id)
-
-    await interaction.response.send_message(
-        f"✅ Registry channel set to {channel.mention}",
-        ephemeral=True
+    @bot.tree.command(
+        name="setup_registry",
+        description="Set the flower registry channel"
     )
-    
+    @app_commands.checks.has_permissions(administrator=True)
+    async def setup_registry(
+        interaction: discord.Interaction,
+        channel: discord.TextChannel
+    ):
+
+        set_registry_channel(channel.id)
+
+        await interaction.response.send_message(
+            f"✅ Registry channel set to {channel.mention}",
+            ephemeral=True
+        )
