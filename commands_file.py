@@ -3,9 +3,11 @@ from discord import app_commands
 
 from database import (
     get_players,
-    save_players
+    save_players,
+    get_registry,
+    save_registry,
+    player_ign
 )
-
 
 def setup(bot):
 
