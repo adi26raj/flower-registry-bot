@@ -24,6 +24,41 @@ async def _delete_after(delay: float, message: discord.Message) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Autocomplete callbacks (module-level – required for decorators to work)
+# ---------------------------------------------------------------------------
+async def flower_autocomplete(
+    interaction: discord.Interaction, current: str
+) -> list[app_commands.Choice[str]]:
+    """Provide case‑insensitive, sorted flower name suggestions (max 25)."""
+    cog = interaction.client.get_cog("FlowerCog")
+    if cog is None:
+        return []
+    flower_names = cog.storage.loadflowers().keys()
+    if current:
+        matches = [n for n in flower_names if n.lower().startswith(current.lower())]
+    else:
+        matches = list(flower_names)
+    sorted_matches = sorted(matches, key=str.casefold)[:25]
+    return [app_commands.Choice(name=name, value=name) for name in sorted_matches]
+
+
+async def ign_autocomplete(
+    interaction: discord.Interaction, current: str
+) -> list[app_commands.Choice[str]]:
+    """Provide case‑insensitive, sorted IGN suggestions (max 25)."""
+    cog = interaction.client.get_cog("FlowerCog")
+    if cog is None:
+        return []
+    igns = cog.storage.getallregisteredigns()  # already sorted case‑fold
+    if current:
+        matches = [i for i in igns if i.lower().startswith(current.lower())]
+    else:
+        matches = list(igns)
+    sorted_matches = sorted(matches, key=str.casefold)[:25]
+    return [app_commands.Choice(name=ign, value=ign) for ign in sorted_matches]
+
+
+# ---------------------------------------------------------------------------
 # Cog
 # ---------------------------------------------------------------------------
 class FlowerCog(commands.Cog):
@@ -32,41 +67,6 @@ class FlowerCog(commands.Cog):
     def __init__(self, bot: commands.Bot, storage: JSONStorage) -> None:
         self.bot = bot
         self.storage = storage
-
-    # -----------------------------------------------------------------------
-    # Autocomplete callbacks (static – accessible by all commands)
-    # -----------------------------------------------------------------------
-    @staticmethod
-    async def flower_autocomplete(
-        interaction: discord.Interaction, current: str
-    ) -> list[app_commands.Choice[str]]:
-        """Provide case‑insensitive, sorted flower name suggestions (max 25)."""
-        cog = interaction.client.get_cog("FlowerCog")
-        if cog is None:
-            return []
-        flower_names = cog.storage.loadflowers().keys()
-        if current:
-            matches = [n for n in flower_names if n.lower().startswith(current.lower())]
-        else:
-            matches = list(flower_names)
-        sorted_matches = sorted(matches, key=str.casefold)[:25]
-        return [app_commands.Choice(name=name, value=name) for name in sorted_matches]
-
-    @staticmethod
-    async def ign_autocomplete(
-        interaction: discord.Interaction, current: str
-    ) -> list[app_commands.Choice[str]]:
-        """Provide case‑insensitive, sorted IGN suggestions (max 25)."""
-        cog = interaction.client.get_cog("FlowerCog")
-        if cog is None:
-            return []
-        igns = cog.storage.getallregisteredigns()  # already sorted case‑fold
-        if current:
-            matches = [i for i in igns if i.lower().startswith(current.lower())]
-        else:
-            matches = list(igns)
-        sorted_matches = sorted(matches, key=str.casefold)[:25]
-        return [app_commands.Choice(name=ign, value=ign) for ign in sorted_matches]
 
     # -----------------------------------------------------------------------
     # Utilities
@@ -517,14 +517,4 @@ class FlowerCog(commands.Cog):
         await interaction.response.send_message(
             f"Manager role set to {role.mention}.", ephemeral=True
         )
-
-
-# ---------------------------------------------------------------------------
-# Standard setup entry point
-# ---------------------------------------------------------------------------
-async def setup(bot: commands.Bot) -> None:
-    """Load the FlowerCog."""
-    storage = JSONStorage()  # uses the directory of database.py by default
-    storage.initializefiles()
-    await bot.add_cog(FlowerCog(bot, storage))
 ```
