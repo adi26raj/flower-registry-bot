@@ -1,4 +1,3 @@
-```python
 from __future__ import annotations
 
 import asyncio
@@ -11,9 +10,6 @@ from discord.ext import commands
 
 from database import JSONStorage, ValidationError, DatabaseError
 
-# ---------------------------------------------------------------------------
-# Helper to delete messages after a delay
-# ---------------------------------------------------------------------------
 async def _delete_after(delay: float, message: discord.Message) -> None:
     """Delete `message` after `delay` seconds, ignoring errors."""
     await asyncio.sleep(delay)
@@ -22,10 +18,6 @@ async def _delete_after(delay: float, message: discord.Message) -> None:
     except (discord.NotFound, discord.Forbidden, discord.HTTPException):
         pass
 
-
-# ---------------------------------------------------------------------------
-# Autocomplete callbacks (module-level – required for decorators to work)
-# ---------------------------------------------------------------------------
 async def flower_autocomplete(
     interaction: discord.Interaction, current: str
 ) -> list[app_commands.Choice[str]]:
@@ -41,7 +33,6 @@ async def flower_autocomplete(
     sorted_matches = sorted(matches, key=str.casefold)[:25]
     return [app_commands.Choice(name=name, value=name) for name in sorted_matches]
 
-
 async def ign_autocomplete(
     interaction: discord.Interaction, current: str
 ) -> list[app_commands.Choice[str]]:
@@ -49,7 +40,7 @@ async def ign_autocomplete(
     cog = interaction.client.get_cog("FlowerCog")
     if cog is None:
         return []
-    igns = cog.storage.getallregisteredigns()  # already sorted case‑fold
+    igns = cog.storage.getallregisteredigns()
     if current:
         matches = [i for i in igns if i.lower().startswith(current.lower())]
     else:
@@ -57,10 +48,6 @@ async def ign_autocomplete(
     sorted_matches = sorted(matches, key=str.casefold)[:25]
     return [app_commands.Choice(name=ign, value=ign) for ign in sorted_matches]
 
-
-# ---------------------------------------------------------------------------
-# Cog
-# ---------------------------------------------------------------------------
 class FlowerCog(commands.Cog):
     """Flower Registry bot – slash command implementation."""
 
@@ -68,9 +55,6 @@ class FlowerCog(commands.Cog):
         self.bot = bot
         self.storage = storage
 
-    # -----------------------------------------------------------------------
-    # Utilities
-    # -----------------------------------------------------------------------
     async def _is_manager(self, interaction: discord.Interaction) -> bool:
         """Return True if the user has the configured manager role."""
         config = self.storage.loadconfig()
@@ -98,10 +82,7 @@ class FlowerCog(commands.Cog):
         ephemeral: bool = False,
         delete_after: int = 600,
     ) -> None:
-        """
-        Send a response that may auto‑delete.
-        Handles both initial responses and follow‑ups correctly.
-        """
+        """Send a response that may auto‑delete. Handles initial and follow‑ups."""
         if ephemeral:
             if not interaction.response.is_done():
                 await interaction.response.send_message(
@@ -111,7 +92,6 @@ class FlowerCog(commands.Cog):
                 await interaction.followup.send(content=content, embed=embed, ephemeral=True)
             return
 
-        # Non‑ephemeral
         if not interaction.response.is_done():
             await interaction.response.send_message(content=content, embed=embed)
             msg = await interaction.original_response()
@@ -130,7 +110,7 @@ class FlowerCog(commands.Cog):
             return 1
         if "n" <= first <= "s":
             return 2
-        return 3  # t‑z and everything else
+        return 3
 
     def _build_range_content(self, index: int, registry: dict[str, dict[str, Any]]) -> str:
         """Format one of the four registry messages."""
@@ -138,23 +118,20 @@ class FlowerCog(commands.Cog):
         start, end = ranges[index]
 
         lines: list[str] = []
-        # Collect flowers that belong in this alphabetical range.
         for flower_name, data in registry.items():
             first = flower_name[0].lower() if flower_name else "a"
             if start <= first <= end:
-                rarity_emoji = data["rarity"].split()[0]  # e.g. "🔴"
+                rarity_emoji = data["rarity"].split()[0]
                 owners_str = ", ".join(data["owners"]) if data["owners"] else "Nobody"
                 lines.append(f"{rarity_emoji} {flower_name} — {owners_str}")
 
         if not lines:
             return "No flowers in this range."
-        # Already sorted because registry is built from a sorted dict.
         return "\n".join(lines)
 
     async def _init_registry_messages(self, channel: discord.TextChannel) -> None:
         """Create the four registry messages and save their IDs."""
         config = self.storage.loadconfig()
-        # Delete previous registry messages if any.
         old_ids = config.get("registrymessageids", [])
         for mid in old_ids:
             try:
@@ -177,7 +154,7 @@ class FlowerCog(commands.Cog):
         config = self.storage.loadconfig()
         msg_ids = config.get("registrymessageids", [])
         if len(msg_ids) != 4:
-            return  # Registry messages not yet initialized
+            return
 
         channel_id = config.get("registrychannelid")
         if channel_id is None:
@@ -196,25 +173,20 @@ class FlowerCog(commands.Cog):
         await message.edit(content=new_content)
 
     async def _update_all_registry_messages(self) -> None:
-        """Refresh all four registry messages (e.g. after an IGN change)."""
+        """Refresh all four registry messages."""
         for idx in range(4):
             await self._update_registry_message(idx)
 
-    # -----------------------------------------------------------------------
-    # Global checks & error handling
-    # -----------------------------------------------------------------------
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        """Enforce command channel (except for `/setup` commands)."""
+        """Enforce command channel (except `/setup`)."""
         if not interaction.guild:
             await interaction.response.send_message("Commands only work in servers.", ephemeral=True)
             return False
 
-        # Setup commands are special – do not require command channel,
-        # and bootstrap by allowing ANY user if no manager role is configured.
         if interaction.command and interaction.command.name.startswith("setup"):
             config = self.storage.loadconfig()
             if config.get("managerroleid") is None:
-                return True  # bootstrap – anyone can run setup until a manager role exists
+                return True
             return await self._is_manager(interaction)
 
         config = self.storage.loadconfig()
@@ -238,13 +210,11 @@ class FlowerCog(commands.Cog):
                 await interaction.response.send_message(
                     str(error) or "You cannot use this command here.", ephemeral=True
                 )
-            # else: response already sent by the check, do nothing
             return
 
         if isinstance(error, (ValidationError, DatabaseError)):
             msg = str(error)
         else:
-            # Log unexpected errors; show a generic message.
             traceback.print_exception(type(error), error, error.__traceback__)
             msg = "An unexpected error occurred. Please try again later."
 
@@ -253,19 +223,13 @@ class FlowerCog(commands.Cog):
         else:
             await interaction.response.send_message(msg, ephemeral=True)
 
-    # -----------------------------------------------------------------------
-    # /register
-    # -----------------------------------------------------------------------
     @app_commands.command(name="register", description="Register your in‑game name (IGN)")
     @app_commands.describe(ign="Your IGN")
     async def register(self, interaction: discord.Interaction, ign: str) -> None:
         """Register a player."""
-        self.storage.registerplayer(interaction.user.id, ign)  # raises ValidationError if IGN empty
+        self.storage.registerplayer(interaction.user.id, ign)
         await interaction.response.send_message(f"Registered as **{ign}**.", ephemeral=True)
 
-    # -----------------------------------------------------------------------
-    # /flower claim
-    # -----------------------------------------------------------------------
     flower_group = app_commands.Group(name="flower", description="Flower commands")
 
     @flower_group.command(name="claim", description="Claim 1–5 flowers")
@@ -300,7 +264,6 @@ class FlowerCog(commands.Cog):
             )
             return
 
-        # Collect non‑empty, deduplicated flower names in the order provided
         raw_flowers = [flower1, flower2, flower3, flower4, flower5]
         seen = set()
         flower_names = []
@@ -336,14 +299,10 @@ class FlowerCog(commands.Cog):
 
         await self._send_response(interaction, content=content)
 
-        # Update only the registry messages that changed
         affected = {self._flower_range_index(f) for f in result["added"]}
         for idx in affected:
             await self._update_registry_message(idx)
 
-    # -----------------------------------------------------------------------
-    # /flower whohas
-    # -----------------------------------------------------------------------
     @flower_group.command(name="whohas", description="Find out who owns a flower")
     @app_commands.describe(flower="Flower name")
     @app_commands.autocomplete(flower=flower_autocomplete)
@@ -376,9 +335,6 @@ class FlowerCog(commands.Cog):
             f"Lookup result posted in {lookup_channel.mention}.", ephemeral=True
         )
 
-    # -----------------------------------------------------------------------
-    # Manager: /flower add
-    # -----------------------------------------------------------------------
     @flower_group.command(name="add", description="[Manager] Add a new flower")
     @app_commands.describe(name="Flower name", rarity="Uncommon / Rare / Epic / Legendary")
     async def flower_add(self, interaction: discord.Interaction, name: str, rarity: str) -> None:
@@ -392,9 +348,6 @@ class FlowerCog(commands.Cog):
         except ValidationError as e:
             await interaction.response.send_message(str(e), ephemeral=True)
 
-    # -----------------------------------------------------------------------
-    # Manager: /flower rename
-    # -----------------------------------------------------------------------
     @flower_group.command(name="rename", description="[Manager] Rename a flower")
     @app_commands.describe(old_name="Current name", new_name="New name")
     @app_commands.autocomplete(old_name=flower_autocomplete)
@@ -415,9 +368,6 @@ class FlowerCog(commands.Cog):
         except ValidationError as e:
             await interaction.response.send_message(str(e), ephemeral=True)
 
-    # -----------------------------------------------------------------------
-    # /ign change
-    # -----------------------------------------------------------------------
     ign_group = app_commands.Group(name="ign", description="Manage your IGN")
 
     @ign_group.command(name="change", description="Change your IGN")
@@ -433,9 +383,6 @@ class FlowerCog(commands.Cog):
         except ValidationError as e:
             await interaction.response.send_message(str(e), ephemeral=True)
 
-    # -----------------------------------------------------------------------
-    # Manager: /player remove
-    # -----------------------------------------------------------------------
     player_group = app_commands.Group(name="player", description="Player management")
 
     @player_group.command(name="remove", description="[Manager] Remove a player by IGN")
@@ -446,7 +393,6 @@ class FlowerCog(commands.Cog):
         if not await self._is_manager(interaction):
             return
 
-        # Find which flowers are affected for updating messages later.
         full = self.storage.getfullregistry()
         affected_flowers = [name for name, data in full.items() if ign in data["owners"]]
 
@@ -468,9 +414,6 @@ class FlowerCog(commands.Cog):
         for idx in indices:
             await self._update_registry_message(idx)
 
-    # -----------------------------------------------------------------------
-    # Setup commands
-    # -----------------------------------------------------------------------
     setup_group = app_commands.Group(name="setup", description="Manager configuration")
 
     @setup_group.command(name="registry_channel", description="Set the registry channel")
@@ -517,4 +460,3 @@ class FlowerCog(commands.Cog):
         await interaction.response.send_message(
             f"Manager role set to {role.mention}.", ephemeral=True
         )
-```
